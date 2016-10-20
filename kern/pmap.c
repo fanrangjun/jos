@@ -102,8 +102,14 @@ boot_alloc(uint32_t n)
 	// to a multiple of PGSIZE.
 	//
 	// LAB 2: Your code here.
+	
+	//cprintf("\nnextfree is : %x, n = %d\n", nextfree, n);
+	nextfree += PGSIZE * (n / PGSIZE + (n % PGSIZE > 0));
+	//cprintf("\nnextfree is : %x, n = %d\n", nextfree, n);
+	return (void *)nextfree;
 
-	return NULL;
+
+//	return NULL;
 }
 
 // Set up a two-level page table:
@@ -125,7 +131,7 @@ mem_init(void)
 	i386_detect_memory();
 
 	// Remove this line when you're ready to test this function.
-	panic("mem_init: This function is not finished\n");
+	//panic("mem_init: This function is not finished\n");
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
@@ -148,7 +154,7 @@ mem_init(void)
 	// array.  'npages' is the number of physical pages in memory.  Use memset
 	// to initialize all fields of each struct PageInfo to 0.
 	// Your code goes here:
-
+	
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
