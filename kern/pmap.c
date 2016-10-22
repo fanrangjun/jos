@@ -106,7 +106,6 @@ boot_alloc(uint32_t n)
 	
 	//cprintf("\nnextfree is : %x, n = %d\n", nextfree, n);
 	nextfree += PGSIZE * (n / PGSIZE + (n % PGSIZE > 0));
-	cprintf("\nnextfree is : %x, n = %d\n", nextfree, n);
 	return (void *)nextfree;
 
 
@@ -288,7 +287,15 @@ struct PageInfo *
 page_alloc(int alloc_flags)
 {
 	// Fill this function in
-	return 0;
+	if(page_free_list == NULL)
+	{
+		return NULL;
+	}
+	struct PageInfo * pp = page_free_list;
+	page_free_list = pp -> pp_link;
+	if(alloc_flags & ALLOC_ZERO)
+		memset(page2kva(pp), 0, PGSIZE);
+	return pp;
 }
 
 //
@@ -301,6 +308,14 @@ page_free(struct PageInfo *pp)
 	// Fill this function in
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
+	//TODO: 
+	/*
+	if(pp -> pp_ref || pp -> pp_link) {
+		panic();
+	}
+	*/
+	 pp -> pp_link = page_free_list;
+	 page_free_list = pp;
 }
 
 //
