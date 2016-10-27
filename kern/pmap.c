@@ -293,6 +293,7 @@ page_alloc(int alloc_flags)
 	}
 	struct PageInfo * pp = page_free_list;
 	page_free_list = pp -> pp_link;
+	pp -> pp_link = NULL;
 	if(alloc_flags & ALLOC_ZERO)
 		memset(page2kva(pp), 0, PGSIZE);
 	return pp;
@@ -308,12 +309,12 @@ page_free(struct PageInfo *pp)
 	// Fill this function in
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
-	//TODO: 
-	/*
+	
+	
 	if(pp -> pp_ref || pp -> pp_link) {
-		panic();
+		panic("check to-be-freed page failed!");
 	}
-	*/
+	
 	 pp -> pp_link = page_free_list;
 	 page_free_list = pp;
 }
@@ -355,7 +356,22 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	return NULL;
+	pte_t * _pte;
+	uint32_t pdx = PDX(va), ptx = PTX(va);
+	if(!(pgdir[pdx] & PTE_P))	//not present
+	{
+		if(create) {
+			struct PageInfo * pd = page_alloc(ALLOC_ZERO);
+			if(!pd)
+				return NULL;
+			pgdir[pdx] = page2pa(pd) | PTE_P | PTE_U | PTE_W;
+			++ pd -> pp_ref;
+		}
+		else
+			return NULL;
+	}
+	
+	return (pte_t *) KADDR(PTE_ADDR(pgdir[pdx])) + ptx;
 }
 
 //
@@ -373,6 +389,14 @@ static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
+	uint32_t i;
+	for(i = 0; i < size / PGSIZE; ++i, va += PGSIZE, pa += PGSIZE)
+	{
+		pte_t *pte = pgdir_walk(pgdir, (void *) va, 1);
+		if(!pte)
+			panic("Insufficient memory when mapping va");
+		*pte = pa | perm | PTE_P;
+	}
 }
 
 //
@@ -404,6 +428,13 @@ int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
 	// Fill this function in
+	pte_t *pte = pgdir_walk(pgdir, va, 1);
+	if(!pte)
+		return -E_NO_MEM;
+	++ pp -> pp_ref;
+	if(*pte & PTE_P)
+		page_remove(pgdir, va);
+	*pte = page2pa(pp) | perm | PTE_P;
 	return 0;
 }
 
@@ -422,7 +453,12 @@ struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	// Fill this function in
-	return NULL;
+	pte_t * pte = pgdir_walk(pgdir, va, 0);
+	if(!pte || !(*pte & PTE_P))
+		return NULL;
+	if(pte_store)
+		*pte_store = pte;
+	return pa2page(PTE_ADDR(*pte));
 }
 
 //
@@ -444,6 +480,11 @@ void
 page_remove(pde_t *pgdir, void *va)
 {
 	// Fill this function in
+	pte_t *pte;
+	struct PageInfo *pp = page_lookup(pgdir, va, &pte);
+	page_decref(pp);
+	*pte = 0;
+	tlb_invalidate(pgdir, va);
 }
 
 //
@@ -699,11 +740,14 @@ check_page(void)
 	// should be no free memory
 	assert(!page_alloc(0));
 
+
 	// there is no page allocated at address 0
 	assert(page_lookup(kern_pgdir, (void *) 0x0, &ptep) == NULL);
 
 	// there is no free memory, so we can't allocate a page table
 	assert(page_insert(kern_pgdir, pp1, 0x0, PTE_W) < 0);
+
+	
 
 	// free pp0 and try again: pp0 should be used for page table
 	page_free(pp0);
