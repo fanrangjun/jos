@@ -26,6 +26,8 @@ static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "showmappings", "Show pages for given va", mon_showmappings },
+	{ "setm", "Update permission of pages", mon_setm },
+	{ "showvm", "Show content at certain memory", mon_showvm },
 };
 
 /***** Implementations of partial functions *****/
@@ -61,7 +63,6 @@ mon_help(int argc, char **argv, struct Trapframe *tf)
 int
 mon_showmappings(int argc, char **argv, struct Trapframe *tf)
 {
-	//TODO
 	if(argc != 3)
 	{
 		cprintf("Usage: showmappings 0xbegin 0xend\n");
@@ -128,7 +129,40 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
+int mon_setm(int argc, char **argv, struct Trapframe *tf) {
+	if (argc == 1) {
+		cprintf("Usage: setm 0xaddr [0|1 :clear or set] [P|W|U]\n");
+		return 0;
+	}
+	uint32_t addr = xtoi(argv[1]);
+	pte_t *pte = pgdir_walk(kern_pgdir, (void *)addr, 1);
+	cprintf("%x before setm: ", addr);
+	pprint(pte);
+	uint32_t perm = 0;
+	if (argv[3][0] == 'P') perm = PTE_P;
+	if (argv[3][0] == 'W') perm = PTE_W;
+	if (argv[3][0] == 'U') perm = PTE_U;
+	if (argv[2][0] == '0') 	//clear
+		*pte = *pte & ~perm;
+	else 	//set
+		*pte = *pte | perm;
+	cprintf("%x after  setm: ", addr);
+	pprint(pte);
+	return 0;
+}
 
+int mon_showvm(int argc, char **argv, struct Trapframe *tf) {
+	if (argc == 1) {
+		cprintf("Usage: showvm 0xaddr 0xn\n");
+		return 0;
+	}
+	void** addr = (void**) xtoi(argv[1]);
+	uint32_t n = xtoi(argv[2]);
+	int i;
+	for (i = 0; i < n; ++i)
+		cprintf("VM at %x is %x\n", addr+i, addr[i]);
+	return 0;
+}
 
 /***** Kernel monitor command interpreter *****/
 
