@@ -203,7 +203,7 @@ mem_init(void)
 	boot_map_region(
 		kern_pgdir,
 		UENVS,
-		PTSIZE,
+		ROUNDUP(NENV*sizeof(struct Env),PGSIZE),
 		PADDR(envs),
 		PTE_U | PTE_P
 	);
