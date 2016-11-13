@@ -28,6 +28,9 @@ static struct Command commands[] = {
 	{ "showmappings", "Show pages for given va", mon_showmappings },
 	{ "setm", "Update permission of pages", mon_setm },
 	{ "showvm", "Show content at certain memory", mon_showvm },
+	{ "backtrace", "Show stack backtrace", mon_backtrace},
+	{ "step", "Execute the next instruction, then return to the monitor", mon_step },
+	{ "continue", "Continue execution of the kernel after a breakpoint", mon_continue },
 };
 
 /***** Implementations of partial functions *****/
@@ -162,6 +165,35 @@ int mon_showvm(int argc, char **argv, struct Trapframe *tf) {
 	for (i = 0; i < n; ++i)
 		cprintf("VM at %x is %x\n", addr+i, addr[i]);
 	return 0;
+}
+
+int
+continue_user_mode(char *command_name, struct Trapframe *tf, int step)
+{
+	// Only continue execution after a breakpoint or a debug
+	//  interrupt.
+	if(tf == NULL || !(tf->tf_trapno == T_BRKPT || tf->tf_trapno == T_DEBUG)) {
+		cprintf("can't %s after a non breakpoint/debug interrupt.\n", command_name);
+		return 0;
+	}
+
+	// If stepping, set the FL_TF bit of the EFLAGS register
+	if(step) tf->tf_eflags |= FL_TF;
+
+	// Return -1 to break out of the monitor
+	return -1;
+}
+
+int
+mon_continue(int argc, char **argv, struct Trapframe *tf)
+{
+	return continue_user_mode(*argv, tf, 0);
+}
+
+int
+mon_step(int argc, char **argv, struct Trapframe *tf)
+{
+	return continue_user_mode(*argv, tf, 1);
 }
 
 /***** Kernel monitor command interpreter *****/
