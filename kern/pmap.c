@@ -356,9 +356,16 @@ page_init(void)
 	// Change the code to reflect this.
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
-	size_t i, cnt = 0;// envs_l = ROUNDDOWN((char *)envs - (char *)pages, PGSIZE) / PGSIZE, envs_u = 31740;
+	size_t i;
+	size_t envs_l = ROUNDDOWN((char *)envs - (char *)pages, sizeof(struct PageInfo)) / sizeof(struct PageInfo), 
+			envs_u = ROUNDUP((char *)&envs[NENV] - (char *)pages, sizeof(struct PageInfo)) / sizeof(struct PageInfo);
 	for (i = 1; i < npages_basemem; i++) {
 		if(i == PGNUM(MPENTRY_PADDR)) {
+			pages[i].pp_ref = 1;
+			pages[i].pp_link = NULL;
+			continue;
+		}
+		if(i >= envs_l && i <= envs_u + 1) {
 			pages[i].pp_ref = 1;
 			pages[i].pp_link = NULL;
 			continue;
@@ -369,7 +376,7 @@ page_init(void)
 		assert(page_free_list);
 	}
 	for (i = (int)ROUNDUP(((char*)pages) + (sizeof(struct PageInfo) * npages) - 0xf0000000, PGSIZE)/PGSIZE; i < npages; ++i) {
-		if(i >= 13312 && i <= 31739) {
+		if(i >= envs_l && i <= envs_u + 1) {
 			pages[i].pp_ref = 1;
 			pages[i].pp_link = NULL;
 			continue;
