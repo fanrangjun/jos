@@ -173,9 +173,13 @@ mem_init(void)
 	// or page_insert
 	page_init();
 
+		
+
 	check_page_free_list(1);
 	check_page_alloc();
 	check_page();
+
+	
 
 	//////////////////////////////////////////////////////////////////////
 	// Now we set up virtual memory
@@ -202,6 +206,7 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
+	
 	boot_map_region(
 		kern_pgdir,
 		UENVS,
@@ -209,6 +214,9 @@ mem_init(void)
 		PADDR(envs),
 		PTE_U | PTE_P
 	);
+	
+	
+	//boot_map_region(kern_pgdir, UENVS, PTSIZE, PADDR(envs), PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -221,6 +229,7 @@ mem_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
+	/*
 	boot_map_region(
 		kern_pgdir,
 		KSTACKTOP - KSTKSIZE,
@@ -228,6 +237,7 @@ mem_init(void)
 		PADDR(bootstack),
 		PTE_W
 	);
+	*/
 
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
@@ -248,8 +258,12 @@ mem_init(void)
 	// Initialize the SMP-related parts of the memory map
 	mem_init_mp();
 
+
+
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
+
+
 
 	// Switch from the minimal entry page directory to the full kern_pgdir
 	// page table we just created.	Our instruction pointer should be
@@ -262,6 +276,8 @@ mem_init(void)
 
 	check_page_free_list(0);
 
+			
+
 	// entry.S set the really important flags in cr0 (including enabling
 	// paging).  Here we configure the rest of the flags that we care about.
 	cr0 = rcr0();
@@ -271,6 +287,7 @@ mem_init(void)
 
 	// Some more checks, only possible after kern_pgdir is installed.
 	check_page_installed_pgdir();
+
 }
 
 // Modify mappings in kern_pgdir to support SMP
@@ -339,7 +356,7 @@ page_init(void)
 	// Change the code to reflect this.
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
-	size_t i;
+	size_t i, cnt = 0;// envs_l = ROUNDDOWN((char *)envs - (char *)pages, PGSIZE) / PGSIZE, envs_u = 31740;
 	for (i = 1; i < npages_basemem; i++) {
 		if(i == PGNUM(MPENTRY_PADDR)) {
 			pages[i].pp_ref = 1;
@@ -349,8 +366,14 @@ page_init(void)
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
 		page_free_list = &pages[i];
+		assert(page_free_list);
 	}
 	for (i = (int)ROUNDUP(((char*)pages) + (sizeof(struct PageInfo) * npages) - 0xf0000000, PGSIZE)/PGSIZE; i < npages; ++i) {
+		if(i >= 13312 && i <= 31739) {
+			pages[i].pp_ref = 1;
+			pages[i].pp_link = NULL;
+			continue;
+		}
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
 		page_free_list = &pages[i];
@@ -369,6 +392,7 @@ page_init(void)
 // Returns NULL if out of free memory.
 //
 // Hint: use page2kva and memset
+
 struct PageInfo *
 page_alloc(int alloc_flags)
 {
@@ -379,6 +403,8 @@ page_alloc(int alloc_flags)
 	}
 	struct PageInfo * pp = page_free_list;
 	page_free_list = pp -> pp_link;
+	 
+	
 	pp -> pp_link = NULL;
 	if(alloc_flags & ALLOC_ZERO)
 		memset(page2kva(pp), 0, PGSIZE);
@@ -396,11 +422,11 @@ page_free(struct PageInfo *pp)
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
 	
-	
 	if(pp -> pp_ref || pp -> pp_link) {
 		panic("check to-be-freed page failed!");
 	}
 	
+	//assert(page_free_list);
 	 pp -> pp_link = page_free_list;
 	 page_free_list = pp;
 }

@@ -34,23 +34,29 @@ i386_init(void)
 
 	cprintf("6828 decimal is %o octal!\n", 6828);
 
+
 	// Lab 2 memory management initialization functions
 	mem_init();
 
 	// Lab 3 user environment initialization functions
+	 
 	env_init();
+	 
 	trap_init();
 
 	// Lab 4 multiprocessor initialization functions
+	 
 	mp_init();
+	 
 	lapic_init();
-
+	 
 	// Lab 4 multitasking initialization functions
 	pic_init();
-
+	 
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
 	lock_kernel();
+	 
 	// Starting non-boot CPUs
 	boot_aps();
 
@@ -83,6 +89,7 @@ boot_aps(void)
 	extern unsigned char mpentry_start[], mpentry_end[];
 	void *code;
 	struct CpuInfo *c;
+	 
 
 	// Write entry code to unused memory at MPENTRY_PADDR
 	code = KADDR(MPENTRY_PADDR);
@@ -110,6 +117,7 @@ mp_main(void)
 	// We are in high EIP now, safe to switch to kern_pgdir 
 	lcr3(PADDR(kern_pgdir));
 	cprintf("SMP: CPU %d starting\n", cpunum());
+	 
 
 	lapic_init();
 	env_init_percpu();
